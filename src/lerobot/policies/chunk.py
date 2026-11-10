@@ -41,8 +41,17 @@ class ChunkPolicySpec:
     current_observation_only: bool = True
     retains_session_state: bool = True
     training_max_delay: int = 0
+    history_frames: int = 1
+    history_stride: int = 1
+    history_padding: bool = False
 
     def __post_init__(self) -> None:
         """Validate the policy's declared prediction and execution lengths."""
         if not 0 < self.execution_steps <= self.prediction_steps:
             raise ValueError("Execution length must be positive and no longer than prediction length.")
+        if self.history_frames < 1 or self.history_stride < 1:
+            raise ValueError("History frames and stride must be positive integers.")
+        if self.current_observation_only and (self.history_frames, self.history_stride) != (1, 1):
+            raise ValueError("Current-observation policies cannot declare a temporal history window.")
+        if self.history_padding and self.history_frames <= 1:
+            raise ValueError("History padding requires a temporal history window.")

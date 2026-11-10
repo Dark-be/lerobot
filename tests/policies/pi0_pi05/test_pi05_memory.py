@@ -27,6 +27,7 @@ from lerobot.policies.pi05.memory import (
     temporal_sinusoidal_embedding,
 )
 from lerobot.policies.pi05.modeling_pi05 import PI05Policy, PI05Pytorch
+from lerobot.utils.feature_spec import FeatureSpec
 
 
 def test_pi05_memory_delta_indices_are_modality_specific():
@@ -41,6 +42,61 @@ def test_pi05_memory_delta_indices_are_modality_specific():
     assert baseline.state_observation_delta_indices is None
     assert memory.image_observation_delta_indices == [-50, -40, -30, -20, -10, 0]
     assert memory.state_observation_delta_indices == [-50, -40, -30, -20, -10, 0]
+
+
+def test_pi05_mem_remote_contract_accepts_explicit_history_and_omits_empty_camera():
+    policy = PI05Policy.__new__(PI05Policy)
+    nn.Module.__init__(policy)
+    visual = SimpleNamespace(type=SimpleNamespace(value="VISUAL"), shape=(3, 8, 8))
+    state = SimpleNamespace(type=SimpleNamespace(value="STATE"), shape=(7,))
+    policy.config = SimpleNamespace(
+        use_visual_memory=True,
+        use_proprioceptive_memory=True,
+        memory_frames=3,
+        memory_stride=5,
+        chunk_size=50,
+        n_action_steps=10,
+        input_features={
+            "observation.images.head": visual,
+            "observation.images.empty_camera_0": visual,
+            "observation.state": state,
+        },
+    )
+    spec = policy.chunk_inference_spec()
+    assert not spec.current_observation_only
+    assert (spec.history_frames, spec.history_stride) == (3, 5)
+    assert spec.history_padding
+    policy.validate_chunk_input_features(
+        (
+            FeatureSpec(
+                "observation.images.head", (3, 6, 6, 3), "uint8", kind="rgb_sequence", semantics="rgb"
+            ),
+            FeatureSpec("observation.state", (3, 7), "float32", semantics="radians"),
+        )
+    )
+
+
+def test_pi05_single_frame_remote_contract_omits_synthesized_empty_camera():
+    policy = PI05Policy.__new__(PI05Policy)
+    nn.Module.__init__(policy)
+    visual = SimpleNamespace(type=SimpleNamespace(value="VISUAL"), shape=(3, 8, 8))
+    state = SimpleNamespace(type=SimpleNamespace(value="STATE"), shape=(7,))
+    policy.config = SimpleNamespace(
+        use_visual_memory=False,
+        use_proprioceptive_memory=False,
+        memory_frames=6,
+        input_features={
+            "observation.images.head": visual,
+            "observation.images.empty_camera_0": visual,
+            "observation.state": state,
+        },
+    )
+    policy.validate_chunk_input_features(
+        (
+            FeatureSpec("observation.images.head", (8, 8, 3), "uint8", kind="rgb", semantics="rgb"),
+            FeatureSpec("observation.state", (7,), "float32", semantics="radians"),
+        )
+    )
 
 
 @pytest.mark.dataset

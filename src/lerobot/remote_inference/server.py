@@ -466,6 +466,12 @@ class SessionWorker:
             raise ProtocolError(ErrorCode.INCOMPATIBLE, "Observation feature keys differ")
         for feature in caps.features:
             value = supplied[feature.name]
+            if feature.kind == "rgb_sequence" and isinstance(value, list):
+                try:
+                    value = np.stack(value, axis=0)
+                except ValueError as exc:
+                    raise ProtocolError(ErrorCode.INCOMPATIBLE, f"Invalid feature {feature.name}") from exc
+                supplied[feature.name] = value
             if (
                 not isinstance(value, np.ndarray)
                 or value.shape != feature.shape
@@ -474,6 +480,22 @@ class SessionWorker:
                 raise ProtocolError(ErrorCode.INCOMPATIBLE, f"Invalid feature {feature.name}")
             if not np.isfinite(value).all():
                 raise ProtocolError(ErrorCode.MALFORMED, "Non-finite observation values")
+        temporal = {
+            feature.name
+            for feature in caps.features
+            if feature.kind == "rgb_sequence" or (caps.history_frames > 1 and len(feature.shape) == 2)
+        }
+        expected_padding = temporal if caps.history_padding else set()
+        padding = body.get("padding", {})
+        if not isinstance(padding, dict) or set(padding) != expected_padding:
+            raise ProtocolError(ErrorCode.INCOMPATIBLE, "Observation padding keys differ")
+        for name, value in padding.items():
+            if (
+                not isinstance(value, np.ndarray)
+                or value.shape != (caps.history_frames,)
+                or value.dtype != np.dtype("bool")
+            ):
+                raise ProtocolError(ErrorCode.INCOMPATIBLE, f"Invalid padding for feature {name}")
         if message.message_type is MessageType.LANGUAGE_REQUEST:
             if not caps.language:
                 raise ProtocolError(ErrorCode.UNSUPPORTED, "Deployment has no text capability")
@@ -580,7 +602,12 @@ class SessionWorker:
             return message.error(ErrorCode.STALE, "Motion generation invalidated")
         body = message.body
         observation = ObservationSnapshot(
-            body["features"], body["capture_time"], body["task"], body["task_version"], body["observation_id"]
+            body["features"],
+            body["capture_time"],
+            body["task"],
+            body["task_version"],
+            body["observation_id"],
+            padding=body.get("padding", {}),
         )
         started = time.monotonic()
         identity = {key: body[key] for key in IDENTITY_KEYS}

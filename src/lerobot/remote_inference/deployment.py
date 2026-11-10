@@ -184,6 +184,12 @@ def load_deployment(cfg: ServerConfig) -> tuple[PolicyRunner, str]:
         0.0,
         "warmup",
         observation_id="warmup",
+        padding={
+            feature.name: np.zeros(runner.capabilities.history_frames, dtype=np.bool_)
+            for feature in cfg.features
+            if runner.capabilities.history_padding
+            and (feature.kind == "rgb_sequence" or len(feature.shape) == 2)
+        },
     )
     try:
         for mode in runner.capabilities.modes:

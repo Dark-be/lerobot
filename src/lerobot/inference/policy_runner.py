@@ -33,7 +33,7 @@ from lerobot.processor import (
     RelativeActionsProcessorStep,
     RenameObservationsProcessorStep,
 )
-from lerobot.utils import OBS_STATE, QUERY_KIND, QUERY_TEXT
+from lerobot.utils import ACTION, OBS_STATE, QUERY_KIND, QUERY_TEXT
 
 from .contracts import (
     DEFAULT_MAX_TEXT_INPUT_CHARS,
@@ -87,8 +87,10 @@ class PolicyRunner:
         if language_enabled is True and not supports_language:
             raise ValueError("Language is enabled but this policy has no text capability.")
         spec = self._policy_spec = policy.chunk_inference_spec()
-        if not spec.current_observation_only:
-            raise ValueError("The default runner does not implement temporal observation sampling.")
+        if not spec.current_observation_only and not any(
+            feature.kind == "rgb_sequence" or len(feature.shape) == 2 for feature in features
+        ):
+            raise ValueError("Temporal policies require an explicit history-bearing serving contract.")
         modes = tuple(ExecutionMode(mode) for mode in modes)
         if any(mode not in spec.modes for mode in modes):
             raise ValueError(f"Unsupported execution mode; policy declares {spec.modes!r}.")
@@ -123,6 +125,9 @@ class PolicyRunner:
             training_max_delay=spec.training_max_delay,
             rtc_horizon=rtc_config.execution_horizon if rtc_modes and rtc_config is not None else 0,
             retains_session_state=spec.retains_session_state,
+            history_frames=spec.history_frames,
+            history_stride=spec.history_stride,
+            history_padding=spec.history_padding,
         )
         self._validate_feature_contract()
         self._validate_processor_pair(preprocessor, postprocessor)
@@ -190,8 +195,12 @@ class PolicyRunner:
             raise ValueError("Canonical action feature differs from policy output_features.")
         if action.kind != "tensor" or len(action.shape) != 1 or action.dtype != "float32":
             raise ValueError("The default runner requires a one-dimensional float32 action representation.")
-        checkpoint_names = getattr(self.policy.config, "action_feature_names", None)
-        if checkpoint_names and tuple(checkpoint_names) != action.names:
+        checkpoint_names = tuple(getattr(self.policy.config, "action_feature_names", None) or ())
+        # Some v3 datasets stored the vector feature label ("action") instead of one
+        # component name per dimension. Treat that legacy scalar label as unspecified;
+        # every genuinely ordered declaration remains strict.
+        legacy_vector_label = checkpoint_names in {(ACTION,), ("action",)} and action.shape != (1,)
+        if checkpoint_names and not legacy_vector_label and checkpoint_names != action.names:
             raise ValueError("Canonical action component order differs from checkpoint action_feature_names.")
         state = next((feature for feature in self.capabilities.features if feature.name == OBS_STATE), None)
         if (
@@ -220,7 +229,24 @@ class PolicyRunner:
             tensor = torch.from_numpy(array.copy())
             if feature.kind == "rgb":
                 tensor = tensor.permute(2, 0, 1).contiguous().to(torch.float32).div_(255)
+            elif feature.kind == "rgb_sequence":
+                tensor = tensor.permute(0, 3, 1, 2).contiguous().to(torch.float32).div_(255)
             batch[feature.name] = tensor.unsqueeze(0)
+        temporal = {
+            feature.name
+            for feature in self.capabilities.features
+            if feature.kind == "rgb_sequence"
+            or (self.capabilities.history_frames > 1 and len(feature.shape) == 2)
+        }
+        expected_padding = temporal if self.capabilities.history_padding else set()
+        if set(observation.padding) != expected_padding:
+            raise ValueError("Observation padding names differ from the temporal serving contract.")
+        for name, padding in observation.padding.items():
+            if padding.shape != (self.capabilities.history_frames,) or padding.dtype != np.dtype("bool"):
+                raise ValueError(
+                    f"Observation padding shape/dtype differs from the serving contract: {name}."
+                )
+            batch[f"{name}_is_pad"] = torch.from_numpy(padding.copy()).unsqueeze(0)
         batch["task"] = [observation.task]
         batch["robot_type"] = self.robot_type
         return batch

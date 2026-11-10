@@ -22,7 +22,7 @@ import numpy as np
 
 @dataclass(frozen=True)
 class FeatureSpec:
-    """Schema of one named value: shape, dtype, kind (`tensor` or `rgb`), component names, semantics."""
+    """Schema of one named value: shape, dtype, kind (`tensor`, `rgb` or `rgb_sequence`), names, semantics."""
 
     name: str
     shape: tuple[int, ...]
@@ -40,7 +40,7 @@ class FeatureSpec:
         prefix = f"Feature {self.name!r}"
         if not isinstance(self.semantics, str) or not self.semantics.strip():
             raise ValueError(f"{prefix}: an explicit semantic convention is required.")
-        if self.kind not in {"tensor", "rgb"}:
+        if self.kind not in {"tensor", "rgb", "rgb_sequence"}:
             raise ValueError(f"{prefix}: unsupported modality {self.kind!r}.")
         if len(self.shape) > 4 or any(type(dim) is not int or dim <= 0 for dim in self.shape):
             raise ValueError(f"{prefix}: invalid shape {self.shape!r}.")
@@ -49,6 +49,13 @@ class FeatureSpec:
         if self.kind == "rgb" and (len(self.shape) != 3 or self.shape[-1] != 3 or self.dtype != "uint8"):
             raise ValueError(
                 f"{prefix}: RGB features need HWC uint8 with three channels, got {self.shape}, {self.dtype}."
+            )
+        if self.kind == "rgb_sequence" and (
+            len(self.shape) != 4 or self.shape[-1] != 3 or self.dtype != "uint8"
+        ):
+            raise ValueError(
+                f"{prefix}: RGB sequence features need THWC uint8 with three channels, "
+                f"got {self.shape}, {self.dtype}."
             )
         if self.names and (len(self.shape) != 1 or len(self.names) != self.shape[0]):
             raise ValueError(

@@ -50,12 +50,14 @@ else:
     sdpa_attention_forward = None
     PaliGemmaForConditionalGenerationWithPiGemma = None
 from lerobot.configs import PreTrainedConfig
+from lerobot.policies.chunk import ChunkPolicySpec, ExecutionMode
 from lerobot.utils.constants import (
     ACTION,
     OBS_LANGUAGE_ATTENTION_MASK,
     OBS_LANGUAGE_TOKENS,
     OBS_STATE,
 )
+from lerobot.utils.feature_spec import FeatureSpec
 
 from ..common.flow_matching import (
     FlowConvention,
@@ -482,8 +484,13 @@ class PaliGemmaWithExpertModel(
         if image.ndim == 5:
             if frame_mask is None:
                 frame_mask = torch.ones(image.shape[:2], dtype=torch.bool, device=image.device)
+            vision_tower = self.paligemma.model.vision_tower
+            # Transformers has exposed SigLIP both as a wrapper carrying
+            # ``vision_model`` and directly as the vision model. Checkpoints keep
+            # their native module layout; MEM only needs the common encoder API.
+            vision_transformer = getattr(vision_tower, "vision_model", vision_tower)
             features = encode_video_with_mem(
-                self.paligemma.model.vision_tower,
+                vision_transformer,
                 image,
                 frame_mask,
                 temporal_attention_every=temporal_attention_every,
@@ -1066,6 +1073,63 @@ class PI05Policy(PreTrainedPolicy):
     config_class = PI05Config
     name = "pi05"
     model_class = PI05Pytorch
+
+    def chunk_inference_spec(self) -> ChunkPolicySpec:
+        """Declare explicit history-bearing remote serving for MEM checkpoints."""
+        if not (self.config.use_visual_memory or self.config.use_proprioceptive_memory):
+            return super().chunk_inference_spec()
+        return ChunkPolicySpec(
+            prediction_steps=self.config.chunk_size,
+            execution_steps=self.config.n_action_steps,
+            modes=(ExecutionMode.CHUNK,),
+            current_observation_only=False,
+            retains_session_state=False,
+            history_frames=self.config.memory_frames,
+            history_stride=self.config.memory_stride,
+            history_padding=True,
+        )
+
+    def validate_chunk_input_features(self, features: tuple[FeatureSpec, ...]) -> None:
+        """Accept physical cameras only; empty-camera slots are synthesized by PI05."""
+        memory = self.config.use_visual_memory or self.config.use_proprioceptive_memory
+        if not memory and not any(".empty_camera_" in name for name in (self.config.input_features or {})):
+            super().validate_chunk_input_features(features)
+            return
+        supplied = {feature.name: feature for feature in features}
+        physical_images = {
+            name: feature
+            for name, feature in (self.config.input_features or {}).items()
+            if feature.type.value == "VISUAL" and ".empty_camera_" not in name
+        }
+        expected_names = set(physical_images)
+        if self.config.use_proprioceptive_memory or OBS_STATE in (self.config.input_features or {}):
+            expected_names.add(OBS_STATE)
+        if set(supplied) != expected_names:
+            raise ValueError(
+                f"Canonical MEM features differ from physical checkpoint inputs: "
+                f"expected {sorted(expected_names)}, got {sorted(supplied)}."
+            )
+        frames = self.config.memory_frames
+        for name in physical_images:
+            feature = supplied[name]
+            shape = physical_images[name].shape
+            if self.config.use_visual_memory:
+                if (
+                    feature.kind != "rgb_sequence"
+                    or len(feature.shape) != 4
+                    or feature.shape[0] != frames
+                    or feature.shape[-1] != 3
+                ):
+                    raise ValueError(f"MEM RGB history shape differs from checkpoint: {name}.")
+            elif feature.kind != "rgb" or feature.shape != (shape[1], shape[2], shape[0]):
+                raise ValueError(f"RGB feature shape differs from checkpoint: {name}.")
+        state = supplied.get(OBS_STATE)
+        if state is not None:
+            width = (self.config.input_features or {})[OBS_STATE].shape[0]
+            expected_shape = (frames, width) if self.config.use_proprioceptive_memory else (width,)
+            if state.kind != "tensor" or state.dtype != "float32" or state.shape != expected_shape:
+                raise ValueError("MEM state history shape differs from checkpoint.")
+
     # Subclasses whose checkpoints are native LeRobot state dicts use the base loader.
     use_native_pretrained_loader = False
 
