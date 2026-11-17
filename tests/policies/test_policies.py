@@ -709,6 +709,46 @@ def test_act_ignores_padded_actions():
     assert valid_loss_dict["l1_loss"] != loss_dict["l1_loss"]
 
 
+def test_act_stateless_image_only_training_and_inference():
+    """ACT supports image-only conditioning without reading observation.state."""
+    chunk_size, action_dim = 3, 2
+    config = ACTConfig(
+        input_features={
+            f"{OBS_IMAGES}.camera": PolicyFeature(type=FeatureType.VISUAL, shape=(3, 64, 64)),
+        },
+        output_features={ACTION: PolicyFeature(type=FeatureType.ACTION, shape=(action_dim,))},
+        chunk_size=chunk_size,
+        n_action_steps=chunk_size,
+        pretrained_backbone_weights=None,
+        dim_model=32,
+        n_heads=2,
+        dim_feedforward=64,
+        n_encoder_layers=1,
+        n_vae_encoder_layers=1,
+        latent_dim=8,
+        device="cpu",
+    )
+    policy = ACTPolicy(config)
+    batch = {
+        f"{OBS_IMAGES}.camera": torch.randn(2, 3, 64, 64),
+        ACTION: torch.randn(2, chunk_size, action_dim),
+        "action_is_pad": torch.zeros(2, chunk_size, dtype=torch.bool),
+    }
+
+    policy.train()
+    loss, _ = policy(batch)
+    assert loss.isfinite()
+
+    policy.eval()
+    actions = policy.predict_action_chunk({f"{OBS_IMAGES}.camera": batch[f"{OBS_IMAGES}.camera"]})
+    assert actions.shape == (2, chunk_size, action_dim)
+
+
+def test_act_action_delta_start_index():
+    config = ACTConfig(chunk_size=7, n_action_steps=7, action_delta_start_index=1)
+    assert config.action_delta_indices == list(range(1, 8))
+
+
 def test_act_temporal_ensembler():
     """Check that the online method in ACTTemporalEnsembler matches a simple offline calculation."""
     temporal_ensemble_coeff = 0.01

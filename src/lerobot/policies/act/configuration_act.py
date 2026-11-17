@@ -43,6 +43,9 @@ class ACTConfig(PreTrainedConfig):
         n_obs_steps: Number of environment steps worth of observations to pass to the policy (takes the
             current step and additional steps going back).
         chunk_size: The size of the action prediction "chunks" in units of environment steps.
+        action_delta_start_index: Dataset-frame offset of the first action in each target chunk. The default
+            0 includes the action aligned with the observation. Set this to 1 when an observation at frame t
+            should supervise actions from frame t+1 through frame t+chunk_size.
         n_action_steps: The number of action steps to run in the environment for one invocation of the policy.
             This should be no greater than the chunk size. For example, if the chunk size size 100, you may
             set this to 50. This would mean that the model predicts 100 steps worth of actions, runs 50 in the
@@ -84,6 +87,7 @@ class ACTConfig(PreTrainedConfig):
     n_obs_steps: int = 1
     chunk_size: int = 100
     n_action_steps: int = 100
+    action_delta_start_index: int = 0
 
     normalization_mapping: dict[str, NormalizationMode] = field(
         default_factory=lambda: {
@@ -146,6 +150,10 @@ class ACTConfig(PreTrainedConfig):
                 f"The chunk size is the upper bound for the number of action steps per model invocation. Got "
                 f"{self.n_action_steps} for `n_action_steps` and {self.chunk_size} for `chunk_size`."
             )
+        if self.action_delta_start_index < 0:
+            raise ValueError(
+                f"`action_delta_start_index` must be non-negative. Got {self.action_delta_start_index}."
+            )
         if self.n_obs_steps != 1:
             raise ValueError(
                 f"Multiple observation steps not handled yet. Got `nobs_steps={self.n_obs_steps}`"
@@ -171,7 +179,9 @@ class ACTConfig(PreTrainedConfig):
 
     @property
     def action_delta_indices(self) -> list:
-        return list(range(self.chunk_size))
+        return list(
+            range(self.action_delta_start_index, self.action_delta_start_index + self.chunk_size)
+        )
 
     @property
     def reward_delta_indices(self) -> None:
