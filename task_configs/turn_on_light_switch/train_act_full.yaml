@@ -1,0 +1,47 @@
+dataset:
+  repo_id: local/turn_on_light_switch_lerobot_v3_300_full
+  root: /data/loop/yhz/datasets/turn_on_light_switch_lerobot_v3_300_full
+  episode_start_only: false
+  video_backend: pyav
+
+policy:
+  type: act
+  n_obs_steps: 1
+  input_features:
+    observation.images.cam_head:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.cam_right_wrist:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.state:
+      type: STATE
+      shape: [7]
+  output_features:
+    action:
+      type: ACTION
+      shape: [7]
+  chunk_size: 100
+  n_action_steps: 100
+  action_delta_start_index: 0
+  device: cuda
+  push_to_hub: false
+  optimizer_lr: 1.0e-5
+  optimizer_lr_backbone: 1.0e-5
+
+batch_size: 16
+num_workers: 4
+prefetch_factor: 4
+persistent_workers: true
+steps: 30000
+log_freq: 200
+save_freq: 5000
+eval_steps: 0
+output_dir: outputs/train/act_turn_on_light_switch_v3_full_chunk100_30k
+job_name: act_turn_on_light_switch_v3_full_chunk100_30k
+save_checkpoint: true
+save_checkpoint_to_hub: false
+seed: 1000
+
+trackio:
+  enable: false

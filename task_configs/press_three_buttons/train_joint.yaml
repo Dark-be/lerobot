@@ -1,0 +1,40 @@
+dataset:
+  repo_id: local/press_three_buttons_joint_keyframes_v1
+  root: /data/loop/yhz/datasets/press_three_buttons_lerobot_v7_500_joint_keyframe
+  episode_start_only: true
+  video_backend: pyav
+
+policy:
+  type: akt
+  n_obs_steps: 1
+  input_features:
+    observation.images.cam_head:
+      type: VISUAL
+      shape: [3, 480, 640]
+  output_features:
+    action:
+      type: ACTION
+      shape: [7]
+  chunk_size: 10
+  n_action_steps: 10
+  device: cuda
+  push_to_hub: false
+  optimizer_lr: 1.0e-5
+  optimizer_lr_backbone: 1.0e-5
+
+batch_size: 16
+num_workers: 4
+prefetch_factor: 4
+persistent_workers: true
+steps: 30000
+log_freq: 200
+save_freq: 5000
+eval_steps: 0
+output_dir: outputs/train/akt_press_three_buttons_v7_joint_first_frame_openloop10_30k
+job_name: akt_press_three_buttons_v7_joint_first_frame_openloop10_30k
+save_checkpoint: true
+save_checkpoint_to_hub: false
+seed: 1000
+
+trackio:
+  enable: false
