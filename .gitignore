@@ -178,3 +178,9 @@ outputs/
 *.part
 
 /dataset/
+
+# Ad-hoc per-experiment deployment and training recipes. They embed machine-local
+# absolute paths, so the curated, per-task copies under task_configs/ are the ones
+# that belong in git.
+/server_*.yaml
+/train_*.yaml
