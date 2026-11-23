@@ -44,6 +44,9 @@ class DatasetConfig:
     episodes: list[int] | None = None
     # Episode indices to drop (e.g. corrupt or heterogeneous ones). Applied on top of `episodes`.
     exclude_episodes: list[int] | None = None
+    # Sample only the first retained frame of every episode. Useful for learning one
+    # full open-loop trajectory from the initial observation.
+    episode_start_only: bool = False
     image_transforms: ImageTransformsConfig = field(default_factory=ImageTransformsConfig)
     revision: str | None = None
     use_imagenet_stats: bool = True

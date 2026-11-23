@@ -366,6 +366,7 @@ def make_dataloaders(
             episode_indices_to_use=dataset.episodes,
             drop_n_first_frames=getattr(active_cfg, "drop_n_first_frames", 0),
             drop_n_last_frames=getattr(active_cfg, "drop_n_last_frames", 0),
+            episode_start_only=cfg.dataset.episode_start_only,
             shuffle=True,
             seed=cfg.seed if cfg.seed is not None else 0,
             absolute_to_relative_idx=dataset.absolute_to_relative_idx,
@@ -484,7 +485,9 @@ def make_dataloaders(
         valid_frames = None
         drop_n_first_frames = getattr(active_cfg, "drop_n_first_frames", 0)
         drop_n_last_frames = getattr(active_cfg, "drop_n_last_frames", 0)
-        if not cfg.dataset.streaming and (drop_n_first_frames or drop_n_last_frames):
+        if not cfg.dataset.streaming and (
+            drop_n_first_frames or drop_n_last_frames or cfg.dataset.episode_start_only
+        ):
             valid_frames = list(
                 EpisodeAwareSampler(
                     eval_dataset.meta.episodes["dataset_from_index"],
@@ -492,6 +495,7 @@ def make_dataloaders(
                     episode_indices_to_use=eval_dataset.episodes,
                     drop_n_first_frames=getattr(active_cfg, "drop_n_first_frames", 0),
                     drop_n_last_frames=getattr(active_cfg, "drop_n_last_frames", 0),
+                    episode_start_only=cfg.dataset.episode_start_only,
                     absolute_to_relative_idx=eval_dataset.absolute_to_relative_idx,
                 )
             )

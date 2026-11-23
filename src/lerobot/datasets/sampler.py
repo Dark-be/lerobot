@@ -51,6 +51,7 @@ class EpisodeAwareSampler:
         episode_indices_to_use: list | None = None,
         drop_n_first_frames: int = 0,
         drop_n_last_frames: int = 0,
+        episode_start_only: bool = False,
         shuffle: bool = False,
         seed: int = 0,
         absolute_to_relative_idx: Mapping[int, int] | None = None,
@@ -62,6 +63,7 @@ class EpisodeAwareSampler:
             episode_indices_to_use: Episode indices to use; None means all.
             drop_n_first_frames: Frames to drop from the start of each episode.
             drop_n_last_frames: Frames to drop from the end of each episode.
+            episode_start_only: Sample only the first retained frame of each episode.
             shuffle: Whether to shuffle the indices.
             seed: Seed the permutation is derived from (together with the epoch).
         """
@@ -85,6 +87,8 @@ class EpisodeAwareSampler:
 
         starts = from_indices + drop_n_first_frames
         lengths = to_indices - drop_n_last_frames - starts
+        if episode_start_only:
+            lengths = np.minimum(lengths, 1)
         for episode_idx in np.flatnonzero(used & (lengths <= 0)):
             logger.warning(
                 "Episode %d has %d frames but drop_n_first_frames=%d and "

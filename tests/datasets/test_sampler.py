@@ -78,6 +78,13 @@ def test_drop_n_last_frames():
     assert list(sampler) == [0, 3, 4]
 
 
+def test_episode_start_only_samples_one_frame_per_episode():
+    sampler = EpisodeAwareSampler([0, 3, 8], [3, 8, 10], episode_start_only=True)
+    assert sampler.indices == [0, 3, 8]
+    assert len(sampler) == 3
+    assert list(sampler) == [0, 3, 8]
+
+
 def test_episode_indices_to_use():
     dataset = Dataset.from_dict(
         {

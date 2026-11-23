@@ -189,12 +189,15 @@ def test_resolve_resume_checkpoint_raises_without_checkpoints(tmp_path, monkeypa
 
 @pytest.mark.dataset
 @pytest.mark.skipif(not _datasets_available, reason="requires datasets")
-@pytest.mark.parametrize("frames,drop_first,drop_last,max_eval_samples", [(12, 2, 3, 3), (64, 0, 32, 0)])
+@pytest.mark.parametrize(
+    "frames,drop_first,drop_last,max_eval_samples,episode_start_only",
+    [(12, 2, 3, 3, False), (64, 0, 32, 0, False), (11, 0, 0, 0, True)],
+)
 def test_dataloaders_filter_boundaries_without_consuming_policy_rng(
-    frames, drop_first, drop_last, max_eval_samples
+    frames, drop_first, drop_last, max_eval_samples, episode_start_only
 ):
     policy = SimpleNamespace(drop_n_first_frames=drop_first, drop_n_last_frames=drop_last)
-    expected = list(range(drop_first, frames - drop_last))
+    expected = [drop_first] if episode_start_only else list(range(drop_first, frames - drop_last))
 
     class Dataset(torch.utils.data.Dataset):
         episodes = [0]
@@ -215,7 +218,7 @@ def test_dataloaders_filter_boundaries_without_consuming_policy_rng(
 
     cfg = SimpleNamespace(
         trainable_config=policy,
-        dataset=SimpleNamespace(streaming=False),
+        dataset=SimpleNamespace(streaming=False, episode_start_only=episode_start_only),
         resume=False,
         seed=42,
         num_workers=0,
