@@ -690,6 +690,8 @@ class PI05Pytorch(nn.Module):  # see openpi `PI0Pytorch`
 
         # Compile model if requested
         if config.compile_model:
+            # Compiled kernels benefit from TF32 matmuls; the stored weights stay float32.
+            torch.set_float32_matmul_precision("high")
             self.sample_actions = torch.compile(self.sample_actions, mode=config.compile_mode)
             # Also compile the main forward pass used during training
             self.forward = torch.compile(self.forward, mode=config.compile_mode)  # type: ignore[method-assign]
