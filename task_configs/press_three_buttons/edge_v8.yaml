@@ -2,26 +2,20 @@ policy:
   type: lerobot-remote
   infer_freq: 10
   endpoint: tcp/172.29.17.45:7449
-  deployment: act-turn-on-light-switch-v3-full-chunk100-30k
+  deployment: akt-press-three-buttons-v8-joint-first-frame-openloop10-50k
   semantics: piper-joint-radians-gripper-0to1-abs-v1
   warmup_required: true
-  task: turn on the light switch
+  task: press the three buttons in order
   observation_layout: qpos
   action_layout: joint+gripper
   mode: chunk
   chunk_merge: append
   encoding: jpeg
   jpeg_quality: 95
-  image_cameras:
-    - cam_head
-    - cam_right_wrist
-  camera_map:
-    cam_head: observation.images.cam_head
-    cam_right_wrist: observation.images.cam_right_wrist
   rtc:
     enabled: true
-    action_horizon: 100
+    action_horizon: 10
     prefix_len: 0
-    execution_horizon: 100
+    execution_horizon: 10
     suffix_len: 0
     aggregate_fn: weighted_average

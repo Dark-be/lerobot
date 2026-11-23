@@ -1,6 +1,6 @@
-deployment: act-turn-on-light-switch-v3-full-chunk100-30k
+deployment: akt-press-three-buttons-v8-joint-first-frame-openloop10-50k
 model:
-  repo_or_path: /data/loop/yhz/lerobot/outputs/train/act_turn_on_light_switch_v3_full_chunk100_30k/checkpoints/030000/pretrained_model
+  repo_or_path: /data/loop/yhz/lerobot/outputs/train/akt_press_three_buttons_v8_joint_first_frame_openloop10_50k/checkpoints/050000/pretrained_model
   revision: null
   device: cuda
 execution:
@@ -9,7 +9,7 @@ execution:
   action_deadline_s: 15.0
   idle_timeout_s: 10.0
   warmup_calls: 1
-  n_action_steps: 100
+  n_action_steps: 10
 language:
   enabled: false
   deadline_s: 60.0
@@ -19,20 +19,11 @@ zenoh:
 semantics: piper-joint-radians-gripper-0to1-abs-v1
 robot_type: piper
 features:
-  - name: observation.state
-    shape: [7]
-    dtype: float32
-    semantics: piper-qpos-v1
   - name: observation.images.cam_head
     shape: [480, 640, 3]
     dtype: uint8
     kind: rgb
     semantics: rgb-head-v1
-  - name: observation.images.cam_right_wrist
-    shape: [480, 640, 3]
-    dtype: uint8
-    kind: rgb
-    semantics: rgb-right-wrist-v1
 action_feature:
   name: action
   shape: [7]
