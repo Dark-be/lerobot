@@ -428,13 +428,25 @@ lerobot-policy-server="lerobot.scripts.lerobot_policy_server:main"
 
 # ---------------- Tool Configurations ----------------
 
-# torch and torchvision come from PyPI; docs/source/installation.mdx covers other CUDA builds.
+# This fork pins CUDA 12.8 wheels so one lockfile serves both Ampere hosts on a 12.4
+# driver (550.x) and Blackwell hosts (sm_120). PyPI's default build is CUDA 13.
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
+[tool.uv]
+# The cu128 channel stops at torch 2.11, which pairs with torchvision 0.26.
+constraint-dependencies = ["torch<2.12", "torchvision<0.27"]
+
 [tool.uv.sources]
+torch = [{ index = "pytorch-cu128" }]
+torchvision = [{ index = "pytorch-cu128" }]
 # LeRobot decodes videos on CPU; avoid GPU-only TorchCodec dependencies without changing GPU training.
 torchcodec = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'arm64')" }]
 
