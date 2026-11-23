@@ -1,5 +1,5 @@
 dataset:
-  repo_id: local/press_three_buttons_joint_keyframes_v1
+  repo_id: local/press_three_buttons_v7_joint_keyframes
   root: /data/loop/yhz/datasets/press_three_buttons_lerobot_v7_500_joint_keyframe
   episode_start_only: true
   video_backend: pyav
