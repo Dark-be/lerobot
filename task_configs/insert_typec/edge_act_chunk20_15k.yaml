@@ -1,0 +1,21 @@
+policy:
+  type: lerobot-remote
+  infer_freq: 10
+  endpoint: tcp/172.29.17.45:7500
+  deployment: act-insert-typec-v7-full-chunk20-15k
+  semantics: piper-joint-radians-gripper-0to1-abs-v1
+  warmup_required: true
+  task: insert the grasped USB-C plug into the power strip receptacle
+  observation_layout: qpos
+  action_layout: joint+gripper
+  mode: chunk
+  chunk_merge: append
+  encoding: jpeg
+  jpeg_quality: 95
+  rtc:
+    enabled: true
+    action_horizon: 20
+    prefix_len: 0
+    execution_horizon: 20
+    suffix_len: 0
+    aggregate_fn: weighted_average
