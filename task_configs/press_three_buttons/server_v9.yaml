@@ -1,0 +1,32 @@
+deployment: akt-press-three-buttons-v9-joint-first-frame-openloop10-80k
+model:
+  repo_or_path: /data/loop/yhz/lerobot/outputs/train/akt_press_three_buttons_v9_joint_first_frame_openloop10_80k/checkpoints/080000/pretrained_model
+  revision: null
+  device: cuda
+execution:
+  supported_modes: [chunk]
+  action_fps: 10.0
+  action_deadline_s: 15.0
+  idle_timeout_s: 10.0
+  warmup_calls: 1
+  n_action_steps: 10
+language:
+  enabled: false
+  deadline_s: 60.0
+zenoh:
+  mode: peer
+  listen_endpoints: [tcp/0.0.0.0:7449]
+semantics: piper-joint-radians-gripper-0to1-abs-v1
+robot_type: piper
+features:
+  - name: observation.images.cam_head
+    shape: [480, 640, 3]
+    dtype: uint8
+    kind: rgb
+    semantics: rgb-head-v1
+action_feature:
+  name: action
+  shape: [7]
+  dtype: float32
+  names: [joint_1, joint_2, joint_3, joint_4, joint_5, joint_6, gripper]
+  semantics: piper-joint-radians-gripper-0to1-abs-v1
