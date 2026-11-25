@@ -1,0 +1,44 @@
+dataset:
+  repo_id: local/press_three_buttons_v10_joint_keyframes
+  root: /data/loop/yhz/datasets/press_three_buttons_lerobot_v10_800_joint_keyframe
+  episode_start_only: true
+  eval_split: 0.1
+  video_backend: pyav
+  image_transforms:
+    enable: true
+    backend: gpu
+    gpu_chunk_size: 32
+    max_num_transforms: 3
+
+policy:
+  type: akt
+  n_obs_steps: 1
+  input_features:
+    observation.images.cam_head:
+      type: VISUAL
+      shape: [3, 480, 640]
+  output_features:
+    action:
+      type: ACTION
+      shape: [7]
+  chunk_size: 10
+  n_action_steps: 10
+  device: cuda
+  push_to_hub: false
+  optimizer_lr: 1.0e-5
+  optimizer_lr_backbone: 1.0e-5
+
+batch_size: 16
+num_workers: 4
+prefetch_factor: 4
+persistent_workers: true
+steps: 100000
+log_freq: 200
+save_freq: 10000
+eval_steps: 2000
+env_eval_freq: 0
+output_dir: outputs/train/akt_press_three_buttons_v10_joint_first_frame_openloop10_100k_with_image_transforms
+job_name: akt_press_three_buttons_v10_joint_first_frame_openloop10_100k_with_image_transforms
+save_checkpoint: true
+save_checkpoint_to_hub: false
+seed: 1000
